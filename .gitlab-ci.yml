@@ -3,17 +3,25 @@ stages:
 
 deploy:
   stage: deploy
+
   before_script:
-    - apt-get update -y && apt-get install -y openssh-client
+    - apt-get update -y
+    - apt-get install -y openssh-client
+
     - eval $(ssh-agent -s)
     - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+
     - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
     - ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
 
   script:
-    - ssh $EC2_USER@$EC2_HOST "
-        rm -rf /var/www/html/* &&
-        git clone https://github.com/Nitishkrsahu/aws-git-2 /var/www/html &&
+    - ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "
+        sudo rm -rf /var/www/html/* &&
+        git clone https://github.com/Nitishkrsahu/aws-git-2 /tmp/app &&
+        sudo cp -r /tmp/app/public/* /var/www/html/ &&
+        sudo chown -R www-data:www-data /var/www/html &&
+        sudo chmod -R 755 /var/www/html &&
         sudo systemctl restart nginx
       "
 
