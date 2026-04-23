@@ -1,22 +1,25 @@
 stages:
   - deploy
 
-deploy:
+deploy_to_ec2:
   stage: deploy
-  script:
+  image: ubuntu:latest
+
+  before_script:
     - apt-get update -y
-    - apt-get install -y openssh-client
+    - apt-get install -y openssh-client rsync
 
+    # SSH setup
     - mkdir -p ~/.ssh
-    - echo "$SSH_PRIVATE_KEY" > key.pem
-    - chmod 600 key.pem
+    - echo "$EC2_SSH_KEY" > ~/.ssh/id_ed25519
+    - chmod 600 ~/.ssh/id_ed25519
 
-    - ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST "
-        sudo rm -rf /var/www/html/* &&
-        git clone https://github.com/Nitishkrsahu/aws-git-2 /tmp/app &&
-        sudo cp -r /tmp/app/public/* /var/www/html/ &&
-        sudo systemctl restart nginx
-      "
+    # host verify avoid
+    - ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
 
-  only:
-    - main
+  script:
+    # deploy files
+    - rsync -avz --delete -e "ssh -i ~/.ssh/id_ed25519" ./ $EC2_USER@$EC2_HOST:/var/www/html
+
+    # restart nginx
+    - ssh -i ~/.ssh/id_ed25519 $EC2_USER@$EC2_HOST "sudo systemctl restart nginx"
